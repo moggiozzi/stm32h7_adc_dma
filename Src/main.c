@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,8 +46,6 @@ ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc3;
 DMA_HandleTypeDef hdma_adc1;
 
-IWDG_HandleTypeDef hiwdg1;
-
 RTC_HandleTypeDef hrtc;
 
 TIM_HandleTypeDef htim2;
@@ -63,7 +61,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART3_UART_Init(void);
-static void MX_IWDG1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_RTC_Init(void);
 static void MX_ADC3_Init(void);
@@ -74,7 +71,41 @@ static void MX_ADC1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+volatile uint32_t dbg_res = 0;
+volatile bool isAdcWork = false;
+volatile uint32_t adcCounter = 0;
+static __attribute__((section(".adc_dma_buf"))) __attribute__((aligned(0x20)))  int16_t s_pAlignedAdcBuffer[(1024 + 0x1f) & ~0x1f];
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+  if (hadc->Instance == ADC1)
+  {
+    //HAL_ADCEx_MultiModeStop_DMA(&hadc1);
+    dbg_res = HAL_ADC_Stop_DMA(hadc);
+    isAdcWork = false;
+    adcCounter++;
+  }
+}
+void HAL_ADC_ErrorCallback(ADC_HandleTypeDef *hadc){
+  dbg_res = 1;
+}
+void test_adc(){
+  uint8_t buf[64];
+  int len = 1;
+  volatile float adcf;
+  memset(&s_pAlignedAdcBuffer[0], 0xff, sizeof(s_pAlignedAdcBuffer));
+  SCB_CleanDCache_by_Addr((uint32_t*)&s_pAlignedAdcBuffer[0], sizeof(s_pAlignedAdcBuffer));
+  while(1){
+    if (!isAdcWork){
+      isAdcWork = true;
+      SCB_InvalidateDCache_by_Addr((uint32_t*)&s_pAlignedAdcBuffer[0], sizeof(s_pAlignedAdcBuffer)); // адрес и размер д.б. выровнены до линии кеша 32хбайт
+      //HAL_ADCEx_MultiModeStart_DMA(&hadc1, (uint32_t*)&s_pAlignedAdcBuffer[0], 6);
+      dbg_res = HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&s_pAlignedAdcBuffer[0], 6);
+    }
+    len = snprintf(buf, sizeof(buf), "%u %u\r\n", adcCounter, (uint32_t)s_pAlignedAdcBuffer[0]);
+    HAL_UART_Transmit(&huart3, buf, len, HAL_MAX_DELAY);
+    HAL_Delay(1000);
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -114,12 +145,14 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART3_UART_Init();
-  MX_IWDG1_Init();
   MX_TIM2_Init();
   MX_RTC_Init();
   MX_ADC3_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Transmit(&huart3, (uint8_t *)"Start\r\n", 7, HAL_MAX_DELAY);
+
+  test_adc();
 
   /* USER CODE END 2 */
 
@@ -368,35 +401,6 @@ static void MX_ADC3_Init(void)
   /* USER CODE BEGIN ADC3_Init 2 */
 
   /* USER CODE END ADC3_Init 2 */
-
-}
-
-/**
-  * @brief IWDG1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_IWDG1_Init(void)
-{
-
-  /* USER CODE BEGIN IWDG1_Init 0 */
-
-  /* USER CODE END IWDG1_Init 0 */
-
-  /* USER CODE BEGIN IWDG1_Init 1 */
-
-  /* USER CODE END IWDG1_Init 1 */
-  hiwdg1.Instance = IWDG1;
-  hiwdg1.Init.Prescaler = IWDG_PRESCALER_4;
-  hiwdg1.Init.Window = 4095;
-  hiwdg1.Init.Reload = 4095;
-  if (HAL_IWDG_Init(&hiwdg1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN IWDG1_Init 2 */
-
-  /* USER CODE END IWDG1_Init 2 */
 
 }
 

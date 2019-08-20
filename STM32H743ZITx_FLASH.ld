@@ -177,7 +177,10 @@ SECTIONS
     . = ALIGN(8);
   } >DTCMRAM
 
-  
+  .ram_d1 ORIGIN(RAM_D1) (NOLOAD):
+  {
+    *(.adc_dma_buf)
+  } > RAM_D1  
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
