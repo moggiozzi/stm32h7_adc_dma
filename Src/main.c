@@ -101,7 +101,7 @@ void test_adc(){
       //HAL_ADCEx_MultiModeStart_DMA(&hadc1, (uint32_t*)&s_pAlignedAdcBuffer[0], 6);
       dbg_res = HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&s_pAlignedAdcBuffer[0], 6);
     }
-    len = snprintf(buf, sizeof(buf), "%u %u\r\n", adcCounter, (uint32_t)s_pAlignedAdcBuffer[0]);
+    len = snprintf(buf, sizeof(buf), "%u %d\r\n", adcCounter, s_pAlignedAdcBuffer[0]);
     HAL_UART_Transmit(&huart3, buf, len, HAL_MAX_DELAY);
     HAL_Delay(1000);
   }
